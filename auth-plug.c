@@ -521,12 +521,12 @@ int mosquitto_auth_unpwd_check(void *userdata, const char *username, const char 
 		free(e->username);
 		free(e->clientid);
 		e->username = strdup(username);
-		e->clientid = strdup("client id not available");
+		e->clientid = strdup(mosquitto_client_id(client));
 	} else {
 		e = (struct cliententry *)malloc(sizeof(struct cliententry));
 		e->key = (void *)client;
 		e->username = strdup(username);
-		e->clientid = strdup("client id not available");
+		e->clientid = strdup(mosquitto_client_id(client));
 		HASH_ADD(hh, ud->clients, key, sizeof(void *), e);
 	}
 #endif
