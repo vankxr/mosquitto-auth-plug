@@ -97,6 +97,7 @@ struct backend_p {
 };
 
 int pbkdf2_check(char *password, char *hash);
+int plaintext_check(char *password, char *hash);
 
 int mosquitto_auth_plugin_version(void)
 {
@@ -142,6 +143,7 @@ int mosquitto_auth_plugin_init(void **userdata, struct mosquitto_auth_opt *auth_
 	ud->aclcache = NULL;
 	ud->authcache = NULL;
 	ud->clients = NULL;
+	ud->check = &pbkdf2_check;
 
 	/*
 	 * Shove all options Mosquitto gives the plugin into a hash,
@@ -175,6 +177,15 @@ int mosquitto_auth_plugin_init(void **userdata, struct mosquitto_auth_opt *auth_
 				log_quiet = 1;
 			}else{
 				_log(LOG_NOTICE, "Error: Invalid log_quiet value (%s).", o->value);
+			}
+		}
+		if (!strcmp(o->key, "passwd_method")) {
+			if (!strcmp(o->value, "plaintext")){
+				ud->check = &plaintext_check;
+			}else if (!strcmp(o->value, "pbkdf2")){
+				ud->check = &pbkdf2_check;
+			}else {
+				_log(LOG_NOTICE, "Error: Invalid passwd_method value (%s).", o->value);
 			}
 		}
 #if 0
@@ -497,9 +508,10 @@ int mosquitto_auth_security_cleanup(void *userdata, struct mosquitto_auth_opt *a
 	return MOSQ_ERR_SUCCESS;
 }
 
-
-#if MOSQ_AUTH_PLUGIN_VERSION >=3
+#if MOSQ_AUTH_PLUGIN_VERSION >=4
 int mosquitto_auth_unpwd_check(void *userdata, struct mosquitto *client, const char *username, const char *password)
+#elif MOSQ_AUTH_PLUGIN_VERSION ==3
+int mosquitto_auth_unpwd_check(void *userdata, const struct mosquitto *client, const char *username, const char *password)
 #else
 int mosquitto_auth_unpwd_check(void *userdata, const char *username, const char *password)
 #endif
@@ -568,7 +580,7 @@ int mosquitto_auth_unpwd_check(void *userdata, const char *username, const char 
 		} else if (rc == BACKEND_ERROR) {
 			has_error = TRUE;
 		} else if (phash != NULL) {
-			match = pbkdf2_check((char *)password, phash);
+			match = ud->check((char *)password, phash);
 			if (match == 1) {
 				backend_name = (*bep)->name;
 				authenticated = TRUE;
@@ -597,8 +609,10 @@ int mosquitto_auth_unpwd_check(void *userdata, const char *username, const char 
 	return granted;
 }
 
-#if MOSQ_AUTH_PLUGIN_VERSION >= 3
+#if MOSQ_AUTH_PLUGIN_VERSION >= 4
 int mosquitto_auth_acl_check(void *userdata, int access, struct mosquitto *client, const struct mosquitto_acl_msg *msg)
+#elif MOSQ_AUTH_PLUGIN_VERSION == 3
+int mosquitto_auth_acl_check(void *userdata, int access, const struct mosquitto *client, const struct mosquitto_acl_msg *msg)
 #else
 int mosquitto_auth_acl_check(void *userdata, const char *clientid, const char *username, const char *topic, int access)
 #endif
@@ -748,8 +762,10 @@ int mosquitto_auth_acl_check(void *userdata, const char *clientid, const char *u
 }
 
 
-#if MOSQ_AUTH_PLUGIN_VERSION >= 3
+#if MOSQ_AUTH_PLUGIN_VERSION >= 4
 int mosquitto_auth_psk_key_get(void *userdata, struct mosquitto *client, const char *hint, const char *identity, char *key, int max_key_len)
+#elif MOSQ_AUTH_PLUGIN_VERSION == 3
+int mosquitto_auth_psk_key_get(void *userdata, const struct mosquitto *client, const char *hint, const char *identity, char *key, int max_key_len)
 #else
 int mosquitto_auth_psk_key_get(void *userdata, const char *hint, const char *identity, char *key, int max_key_len)
 #endif

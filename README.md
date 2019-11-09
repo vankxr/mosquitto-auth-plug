@@ -55,8 +55,17 @@ plugin as `auth_opt_anonusername` and they
 are handled by a so-called _fallback back-end_ which is the *first* configured
 back-end.
 
-Passwords are obtained from the back-end as PBKDF2 strings (see [Passwords](#passwords) below). If you store a clear-text password or any hash not generated the same way,
+Passwords are obtained from the back-end as PLAINTEXT string or as PBKDF2 
+strings (see [Passwords](#passwords) below). 
+The option `auth_opt_passwd_method` fix the comparison method.
+PBKDF2 is used by default (or with the value `pbkdf2` put to this option),
+if you store a clear-text password or any hash not generated the same way,
 the comparison and the authentication will fail.
+If you want to store clear-text password, you must add the value `plaintext` as :
+
+```
+auth_opt_passwd_method plaintext
+```
 
 The mysql and mongo back-ends support expansion of `%c` and `%u` as clientid and username
 respectively. This allows ACLs in the database to look like this:
@@ -748,9 +757,9 @@ mysql> INSERT INTO user (username, pwhash, superuser) VALUES ('mylistener', 'F0B
 
 ## Passwords
 
-A user's password is stored as a [PBKDF2] hash in the back-end. An example
-"password" is a string with five pieces in it, delimited by `$`, inspired by
-[this][1].
+By default, a user's password is stored as a [PBKDF2] hash in the back-end.
+An example "password" is a string with five pieces in it, delimited by `$`,
+inspired by [this][1].
 
 ```
 PBKDF2$sha256$901$8ebTR72Pcmjl3cYq$SCVHHfqn9t6Ev9sE6RMTeF3pawvtGqTu
@@ -768,6 +777,14 @@ base64 decoded before the validation). In case your own implementation uses
 the raw bytes when hashing the password and base64 is only used for display
 purpose, compile this project with the `-DRAW_SALT` flag (you could add this
 in the `config.mk` file to `CFG_CFLAGS`).
+
+A plaintext password may be used. In this case you must add in the file
+mosquitto.conf the following line :
+
+```
+auth_opt_passwd_method plaintext
+```
+
 
 ## Creating a user
 
