@@ -97,6 +97,7 @@ struct backend_p {
 };
 
 int pbkdf2_check(char *password, char *hash);
+int plaintext_check(char *password, char *hash);
 
 int mosquitto_auth_plugin_version(void)
 {
@@ -142,6 +143,7 @@ int mosquitto_auth_plugin_init(void **userdata, struct mosquitto_auth_opt *auth_
 	ud->aclcache = NULL;
 	ud->authcache = NULL;
 	ud->clients = NULL;
+	ud->check = &pbkdf2_check;
 
 	/*
 	 * Shove all options Mosquitto gives the plugin into a hash,
@@ -175,6 +177,15 @@ int mosquitto_auth_plugin_init(void **userdata, struct mosquitto_auth_opt *auth_
 				log_quiet = 1;
 			}else{
 				_log(LOG_NOTICE, "Error: Invalid log_quiet value (%s).", o->value);
+			}
+		}
+		if (!strcmp(o->key, "passwd_method")) {
+			if (!strcmp(o->value, "plaintext")){
+				ud->check = &plaintext_check;
+			}else if (!strcmp(o->value, "pbkdf2")){
+				ud->check = &pbkdf2_check;
+			}else {
+				_log(LOG_NOTICE, "Error: Invalid passwd_method value (%s).", o->value);
 			}
 		}
 #if 0
@@ -569,7 +580,7 @@ int mosquitto_auth_unpwd_check(void *userdata, const char *username, const char 
 		} else if (rc == BACKEND_ERROR) {
 			has_error = TRUE;
 		} else if (phash != NULL) {
-			match = pbkdf2_check((char *)password, phash);
+			match = ud->check((char *)password, phash);
 			if (match == 1) {
 				backend_name = (*bep)->name;
 				authenticated = TRUE;
